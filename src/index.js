@@ -1,10 +1,19 @@
+// Purpose: create a completely comment-annotated version of this file for personal understanding
+
+// hyperapp.h creates a virtual DOM node. 'name' can either be a primitive like 'div', or a
+// custom component (which is a function), e.g. 'myComponent'
+// attributes are HTML attributes like 'style', 'onclick'
 export function h(name, attributes) {
   var rest = []
   var children = []
   var length = arguments.length
-
+  
+  // any additional arguments (in addition to name and attributes) are pushed to the 'rest' array
   while (length-- > 2) rest.push(arguments[length])
-
+  
+  // the 'rest' array elements are pushed to the 'children' array unless they are undefined, null, or a boolean
+  // if some of the elements are arrays, they are flattened
+  // so var rest = [el, el, [el, el], null] becomes var children = [el, el, el, el]
   while (rest.length) {
     var node = rest.pop()
     if (node && node.pop) {
@@ -15,31 +24,42 @@ export function h(name, attributes) {
       children.push(node)
     }
   }
-
+  
+  // if 'name' is a function, that means it's a custom component (which is a pure function).
+  // return the result of calling that function.
+  // if 'name' is a primitive like 'div', 'h1', return a virtual DOM node (plain JS object) with
+  // nodeName, attributes, children and key
+  // any custom components (functions) will eventually return "primitive" virtual DOM nodes
   return typeof name === "function"
     ? name(attributes || {}, children)
     : {
-        nodeName: name,
-        attributes: attributes || {},
-        children: children,
-        key: attributes && attributes.key
+        nodeName: name, // String eg. 'div'
+        attributes: attributes || {}, // Object with keys eg. 'style'
+        children: children, // Array of child elements 
+        key: attributes && attributes.key // key is used to identify an existing element to prevent re-renders, more on this later
       }
 }
 
+// hyperapp.app bolts the virtual DOM tree into a real DOM element so the app actually gets rendered.
+// state: Object that describes the application state (key-value pairs like counterValue: 666 for some counter widget)
+// actions: Object of functions that take state as an input and return a new modified state
+// view: The virtual DOM tree of the application, created with hyperapp.h,
+// container: the container element to bolt the virtual DOM into
 export function app(state, actions, view, container) {
-  var map = [].map
-  var rootElement = (container && container.children[0]) || null
-  var oldNode = rootElement && recycleElement(rootElement)
-  var lifecycle = []
-  var skipRender
+  var map = [].map // simply a reference to Array.prototype.map
+  var rootElement = (container && container.children[0]) || null // first child of the container element or null
+  var oldNode = rootElement && recycleElement(rootElement) // if rootElement exists, call recycleElement on it
+  var lifecycle = [] // an array of lifecycle methods
+  var skipRender // boolean used to decide if a re-render should happen or not. default false
   var isRecycling = true
-  var globalState = clone(state)
+  var globalState = clone(state) // 
   var wiredActions = wireStateToActions([], globalState, clone(actions))
 
   scheduleRender()
 
   return wiredActions
-
+  
+  // Convert a real DOM element into a Virtual DOM element recursively
   function recycleElement(element) {
     return {
       nodeName: element.nodeName.toLowerCase(),
@@ -51,7 +71,10 @@ export function app(state, actions, view, container) {
       })
     }
   }
-
+  
+  // Populates view (the virtual DOM) with the application state and actions to make it "live"
+  // If node is a custom component (function), call it with state and wiredActions,
+  // Otherwise return the node object or an empty string if not defined
   function resolveNode(node) {
     return typeof node === "function"
       ? resolveNode(node(globalState, wiredActions))
@@ -59,28 +82,35 @@ export function app(state, actions, view, container) {
         ? node
         : ""
   }
-
+  
+  // Function to actually update the real DOM
   function render() {
     skipRender = !skipRender
-
+    
+    // Populate the VDom with state and actions
     var node = resolveNode(view)
-
+    
+    // If rendering should not be skipped (only 1 render per tick), call the patch function to modify the DOM
+    // According to the updated VDOM
     if (container && !skipRender) {
       rootElement = patch(container, rootElement, oldNode, (oldNode = node))
     }
 
     isRecycling = false
-
+    
+    // If there are any lifecycle methods, call them in sequence
     while (lifecycle.length) lifecycle.pop()()
   }
-
+  
+  // Only render once per tick. Eg. if state is updated 10 times in a row synchronously, only re-render once
   function scheduleRender() {
     if (!skipRender) {
       skipRender = true
       setTimeout(render)
     }
   }
-
+  
+  // Helper function to shallow copy an object
   function clone(target, source) {
     var out = {}
 
