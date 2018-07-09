@@ -425,7 +425,7 @@ export function app(state, actions, view, container) {
       }
 
       element = newElement
-    } else if (oldNode.nodeName == null) {
+    } else if (oldNode.nodeName == null) { // if node is a text node
       element.nodeValue = node
     } else {
       // Otherwise call updateElement
